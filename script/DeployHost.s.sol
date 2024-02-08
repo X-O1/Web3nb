@@ -10,7 +10,7 @@ contract DeployHost is Script {
 
     function run() external returns (Host) {
         vm.startBroadcast();
-        Host host = new Host(keyNft);
+        Host host = new Host();
         vm.stopBroadcast();
 
         return host;

@@ -14,6 +14,7 @@ contract HomeTest is Test {
     KeyNft keyNft;
 
     address public HOST = makeAddr("HOST");
+    address public GUEST = makeAddr("GUEST");
 
     function setUp() external {
         DeployHost deployHost = new DeployHost();
@@ -23,6 +24,7 @@ contract HomeTest is Test {
         keyNft = deployKeyNft.run();
 
         vm.deal(HOST, 1 ether);
+        vm.deal(GUEST, 1 ether);
     }
 
     function testAddingProperty() public {
@@ -35,14 +37,25 @@ contract HomeTest is Test {
     }
 
     function testDeletingProperty() public {
+        // uint256 lengthOfAllPropertiesListed = host.getListOfAllListedProperties().length;
+
         vm.prank(HOST);
         bytes32 propertyId = host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1, 10);
 
         vm.prank(HOST);
+        host.getListOfAllListedProperties();
+
+        vm.prank(HOST);
         host.deleteProperty(propertyId);
+
+        host.getListOfAllListedProperties();
 
         vm.prank(HOST);
         host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1, 10);
+
+        vm.expectRevert();
+        vm.prank(GUEST);
+        host.deleteProperty(propertyId);
 
         assertEq(host.getCurrentNumOfPropertiesListed(), 1);
     }
