@@ -6,8 +6,8 @@ pragma solidity ^0.8.20;
  * @notice NFT to access token-gated property lock box or front door codes.
  */
 
-import {ERC721URIStorage} from "lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {ERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import {ERC721URIStorage} from "lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 contract KeyNft is ERC721URIStorage {
     uint256 public tokenIds;
@@ -18,17 +18,17 @@ contract KeyNft is ERC721URIStorage {
         tokenIds += 1;
     }
 
-    function mint(string memory _tokenURI) public returns (uint256 _newTokenId) {
+    function mintKey() public returns (uint256 _newTokenId) {
         increment();
 
         uint256 newTokenId = tokenIds;
         _mint(msg.sender, newTokenId);
-        _setTokenURI(newTokenId, _tokenURI);
+        _setTokenURI(newTokenId, "Photo of a magical key");
 
         return newTokenId;
     }
 
-    function getTotalSupply() public view returns (uint256 _totalSupply) {
+    function getCurrentTotalSupply() external view returns (uint256 _totalSupply) {
         return tokenIds;
     }
 }

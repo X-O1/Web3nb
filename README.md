@@ -1,3 +1,3 @@
 ## Web3nb
 
-Airbnb built with smart contracts.
+Smart Contract-based home hosting service.
