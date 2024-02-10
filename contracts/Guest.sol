@@ -8,17 +8,22 @@ pragma solidity ^0.8.20;
  */
 
 import {Host} from "./Host.sol";
+import {KeyNft} from "./KeyNft.sol";
 
 contract Guest {
-    Host hostContract;
-
     // EVENTS
-    event BookingRequested(address indexed guest, bytes32 indexed propertyId, uint256 indexed depositAmount);
+    event BookingRequested(
+        address indexed guest, bytes32 indexed propertyId, uint256 indexed daysBooked, uint256 depositAmount
+    );
 
     // MODIFIERS
 
     // STATE VARIABLES
+    Host hostContract;
+    KeyNft keyNftContract;
+
     mapping(address _guest => mapping(bytes32 _propertyId => BookingDetails _bookingDetails)) public bookingRequests;
+    mapping(address _guest => mapping(bytes32 _propertyId => uint256 _deposit)) public deposits;
 
     // TYPE DECLARATIONS
     struct PropertyDetails {
@@ -32,11 +37,10 @@ contract Guest {
         uint256 bedrooms;
         uint256 bathrooms;
         uint256 pricePerNight;
-        uint256 daysForDiscount;
     }
 
     struct BookingDetails {
-        address payable guest;
+        address guest;
         bytes32 propertyId;
         uint256 numberOfAdditionalGuests;
         uint256 daysBooked;
@@ -46,22 +50,30 @@ contract Guest {
     // FUNCTIONS
     receive() external payable {}
 
-    constructor(address _hostContractAddress) {
+    constructor(address _hostContractAddress, address _keyNftAddress) {
         hostContract = Host(payable(_hostContractAddress));
+        keyNftContract = KeyNft(payable(_keyNftAddress));
     }
 
     function requestBooking(bytes32 _propertyId, uint256 _numOfAdditionalGuests, uint256 _daysBooked)
         public
         payable
-        returns (address _propertyOwner, uint256 _depositAmount)
+        returns (address _guest, bytes32 propertyId, uint256 daysBooked, address _propertyOwner, uint256 _depositAmount)
     {
-        uint256 totalDeposit = _calculatePropertyTotalDepositAmount(_propertyId, _daysBooked);
+        deposits[msg.sender][_propertyId] += msg.value;
+        uint256 totalDeposit = calculatePropertyTotalDepositAmount(_propertyId, _daysBooked);
         require(msg.value == totalDeposit, "Send exact deposit amount");
 
         _addBookingDetails(msg.sender, _propertyId, _numOfAdditionalGuests, _daysBooked, msg.value);
 
-        emit BookingRequested(msg.sender, _propertyId, msg.value);
-        return (hostContract.getPropertyDetailsByPropertyId(_propertyId).owner, msg.value);
+        emit BookingRequested(msg.sender, _propertyId, msg.value, _daysBooked);
+        return (
+            msg.sender,
+            _propertyId,
+            _daysBooked,
+            hostContract.getPropertyDetailsByPropertyId(_propertyId).owner,
+            msg.value
+        );
     }
 
     // HELPER
@@ -80,8 +92,8 @@ contract Guest {
         bookingDetails.depositAmount = _depositAmount;
     }
 
-    function _calculatePropertyTotalDepositAmount(bytes32 _propertyId, uint256 _daysBooked)
-        internal
+    function calculatePropertyTotalDepositAmount(bytes32 _propertyId, uint256 _daysBooked)
+        public
         view
         returns (uint256 _depositAmount)
     {

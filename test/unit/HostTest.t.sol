@@ -29,9 +29,9 @@ contract HomeTest is Test {
 
     function testAddingProperty() public {
         vm.prank(HOST);
-        host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1, 10);
+        host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
         vm.prank(HOST);
-        host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1, 10);
+        host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
 
         assertEq(host.getCurrentNumOfPropertiesListed(), 2);
     }
@@ -40,7 +40,7 @@ contract HomeTest is Test {
         // uint256 lengthOfAllPropertiesListed = host.getListOfAllListedProperties().length;
 
         vm.prank(HOST);
-        bytes32 propertyId = host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1, 10);
+        bytes32 propertyId = host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
 
         vm.prank(HOST);
         host.getListOfAllListedProperties();
@@ -51,7 +51,7 @@ contract HomeTest is Test {
         host.getListOfAllListedProperties();
 
         vm.prank(HOST);
-        host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1, 10);
+        host.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
 
         vm.expectRevert();
         vm.prank(GUEST);

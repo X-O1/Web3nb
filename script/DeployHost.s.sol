@@ -6,8 +6,6 @@ import {Host} from "../contracts/Host.sol";
 import {KeyNft} from "../contracts/KeyNft.sol";
 
 contract DeployHost is Script {
-    address keyNft;
-
     function run() external returns (Host) {
         vm.startBroadcast();
         Host host = new Host();

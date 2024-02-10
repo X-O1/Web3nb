@@ -24,7 +24,7 @@ contract Host {
         uint256 bedrooms;
         uint256 bathrooms;
         uint256 pricePerNight;
-        uint256 daysForDiscount;
+        bool bookingApproved;
     }
 
     // EVENTS
@@ -40,17 +40,22 @@ contract Host {
     }
 
     // STATE VARIABLES
+    address public contractAddress;
     uint256 public currentNumOfProperties;
     PropertyDetails[] public allPropertiesListed;
 
+    mapping(address _host => PropertyDetails[] _listOfProperties) public allPropertiesListedbyOwner;
+    mapping(bytes32 _propertyId => PropertyDetails _propertyDetails) public propertyDetailsByPropertyId;
+    mapping(address _host => bytes32[] _propertyIds) public listOfPropertyIdsByOwner;
     mapping(address _host => mapping(bytes32 _propertyId => PropertyDetails _propertyDetails)) public
         listingDetailsByOwnerAndPropertyId;
-    mapping(address _host => PropertyDetails[] _listOfProperties) public allPropertiesListedbyOwner;
-    mapping(address _host => bytes32[] _propertyIds) public listOfPropertyIdsByOwner;
-    mapping(bytes32 _propertyId => PropertyDetails _propertyDetails) public propertyDetailsByPropertyId;
 
     // FUNCTIONS
     receive() external payable {}
+
+    constructor() {
+        contractAddress = address(this);
+    }
 
     function addProperty(
         bool _house,
@@ -60,8 +65,7 @@ contract Host {
         string memory _location,
         uint256 _bedrooms,
         uint256 _bathrooms,
-        uint256 _pricePerNight,
-        uint256 _daysForDiscount
+        uint256 _pricePerNight
     ) public returns (bytes32 _propertyId) {
         _incrementNumOfPropertiesListed();
         bytes32 propertyId = _generatePropertyId(currentNumOfProperties, _location);
@@ -76,8 +80,7 @@ contract Host {
             _location,
             _bedrooms,
             _bathrooms,
-            _pricePerNight,
-            _daysForDiscount
+            _pricePerNight
         );
 
         emit PropertyAdded(msg.sender, propertyId);
@@ -121,8 +124,7 @@ contract Host {
         string memory _location,
         uint256 _bedrooms,
         uint256 _bathrooms,
-        uint256 _pricePerNight,
-        uint256 _daysForDiscount
+        uint256 _pricePerNight
     ) internal {
         PropertyDetails storage listing = listingDetailsByOwnerAndPropertyId[_owner][_propertyId];
 
@@ -136,7 +138,7 @@ contract Host {
         listing.bedrooms = _bedrooms;
         listing.bathrooms = _bathrooms;
         listing.pricePerNight = _pricePerNight;
-        listing.daysForDiscount = _daysForDiscount;
+        listing.bookingApproved = false;
 
         allPropertiesListedbyOwner[msg.sender].push(listing);
         listOfPropertyIdsByOwner[msg.sender].push(_propertyId);
@@ -195,5 +197,9 @@ contract Host {
 
     function getListOfAllListedProperties() external view returns (PropertyDetails[] memory _allListedProperties) {
         return allPropertiesListed;
+    }
+
+    function getContractAddress() external view returns (address _contractAddress) {
+        return contractAddress;
     }
 }

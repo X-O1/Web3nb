@@ -11,8 +11,11 @@ import {ERC721URIStorage} from "lib/openzeppelin-contracts/contracts/token/ERC72
 
 contract KeyNft is ERC721URIStorage {
     uint256 public tokenIds;
+    address public contractAddress;
 
-    constructor() ERC721("Key Nft", "KEY") {}
+    constructor() ERC721("Key Nft", "KEY") {
+        contractAddress = address(this);
+    }
 
     function increment() public {
         tokenIds += 1;
@@ -30,5 +33,9 @@ contract KeyNft is ERC721URIStorage {
 
     function getCurrentTotalSupply() external view returns (uint256 _totalSupply) {
         return tokenIds;
+    }
+
+    function getContractAddress() external view returns (address) {
+        return contractAddress;
     }
 }
