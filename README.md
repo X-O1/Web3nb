@@ -1,4 +1,4 @@
-# Web3nb 
+# Web3nb: Home Hosting Service
 
 ## Overview
 Web3nb is blockchain-based infrastructure designed to facilitate a home hosting service, similar to how Airbnb operates but within the decentralized web space. This smart contract enables property owners to list their properties and manage bookings through a decentralized, transparent, and secure system.
