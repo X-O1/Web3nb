@@ -13,43 +13,30 @@ contract Web3nb {
     // ERRORS
     error Web3nb__PropertyDoesNotExist();
     error Web3nb__NotPropertyOwner();
+    error Web3nb__TransactionFailed();
 
     // TYPE DECLARATIONS
     struct PropertyDetails {
-        address payable owner;
+        address owner;
         bytes32 propertyId;
-        uint256 keyNftTokenId;
+        uint256 keyNftId;
         uint256 pricePerNight;
-        bool bookingApproved;
-        bool house;
-        bool apartment;
-        bool entirePlace;
-        bool room;
-        string location;
-        uint256 bedrooms;
-        uint256 bathrooms;
     }
 
-    struct BookingDetails {
+    struct BookingRequestDetails {
         address guest;
         bytes32 propertyId;
-        uint256 numberOfAdditionalGuests;
+        bytes32 bookingId;
         uint256 daysBooked;
         uint256 depositAmount;
+        RequestStatus status;
     }
 
-    struct PropertyStatus {
-        bool bookingRequestPending;
-        bool bookingApproved;
+    struct RequestStatus {
+        bool approved;
+        bool declined;
+        bool pending;
     }
-
-    struct Listing {
-        PropertyDetails propertyDetails;
-        BookingDetails bookingDetails;
-        PropertyStatus propertyStatus;
-    }
-
-    // Re-Archetype data structures ^^^
 
     // EVENTS
     event PropertyAdded(address indexed host, bytes32 indexed propertyId);
@@ -57,10 +44,11 @@ contract Web3nb {
     event BookingRequested(
         address indexed guest, bytes32 indexed propertyId, uint256 indexed daysBooked, uint256 depositAmount
     );
+    event BookingApproved(bytes32 indexed propertyId, bytes32 indexed bookingId);
 
     // MODIFIERS
     modifier onlyPropertyOwner(bytes32 _propertyId) {
-        if (msg.sender != propertyDetailsByPropertyId[_propertyId].owner) {
+        if (msg.sender != propertyDetails[_propertyId].owner) {
             revert Web3nb__NotPropertyOwner();
         }
         _;
@@ -71,9 +59,12 @@ contract Web3nb {
     uint256 public currentNumOfProperties;
     PropertyDetails[] public allPropertiesListed;
 
-    mapping(bytes32 _propertyId => PropertyDetails _propertyDetails) public propertyDetailsByPropertyId;
-    mapping(address _guest => mapping(bytes32 _propertyId => BookingDetails _bookingDetails)) public bookingRequests;
-    mapping(address _guest => mapping(bytes32 _propertyId => uint256 _deposit)) public bookingDeposits;
+    mapping(bytes32 propertyId => PropertyDetails propertyDetails) public propertyDetails;
+    // mapping(address guest => mapping(bytes32 propertyId => BookingRequestDetails bookingRequestDetails)) public
+    //     guestBookingRequests;
+    mapping(address guest => mapping(bytes32 propertyId => uint256 deposit)) public bookingDeposits;
+
+    mapping(bytes32 bookingId => BookingRequestDetails requestDetails) public propertyRequests;
 
     // FUNCTIONS
     receive() external payable {}
@@ -82,72 +73,29 @@ contract Web3nb {
         keyNftContract = KeyNft(_keyNftAddress);
     }
 
-    function addProperty(
-        bool _house,
-        bool _apartment,
-        bool _entirePlace,
-        bool _room,
-        string memory _location,
-        uint256 _bedrooms,
-        uint256 _bathrooms,
-        uint256 _pricePerNight
-    ) public returns (bytes32 _propertyId) {
+    function addProperty(uint256 _pricePerNight) public returns (bytes32 _propertyId) {
         _incrementNumOfPropertiesListed();
-        bytes32 propertyId = _generatePropertyId(currentNumOfProperties, _location);
+        bytes32 propertyId = _generatePropertyId(currentNumOfProperties);
 
-        _addPropertyDetails(
-            msg.sender,
-            propertyId,
-            _house,
-            _apartment,
-            _entirePlace,
-            _room,
-            _location,
-            _bedrooms,
-            _bathrooms,
-            _pricePerNight
-        );
+        _addPropertyDetails(msg.sender, propertyId, _pricePerNight);
 
         emit PropertyAdded(msg.sender, propertyId);
         return propertyId;
     }
 
-    function _addPropertyDetails(
-        address _owner,
-        bytes32 _propertyId,
-        bool _house,
-        bool _apartment,
-        bool _entirePlace,
-        bool _room,
-        string memory _location,
-        uint256 _bedrooms,
-        uint256 _bathrooms,
-        uint256 _pricePerNight
-    ) internal {
-        PropertyDetails storage listing = propertyDetailsByPropertyId[_propertyId];
+    function _addPropertyDetails(address _owner, bytes32 _propertyId, uint256 _pricePerNight) internal {
+        PropertyDetails storage listing = propertyDetails[_propertyId];
 
-        listing.owner = payable(_owner);
+        listing.owner = _owner;
         listing.propertyId = _propertyId;
-        listing.house = _house;
-        listing.apartment = _apartment;
-        listing.entirePlace = _entirePlace;
-        listing.room = _room;
-        listing.location = _location;
-        listing.bedrooms = _bedrooms;
-        listing.bathrooms = _bathrooms;
         listing.pricePerNight = _pricePerNight;
-        listing.bookingApproved = false;
 
-        propertyDetailsByPropertyId[_propertyId] = listing;
+        propertyDetails[_propertyId] = listing;
         allPropertiesListed.push(listing);
     }
 
-    function _generatePropertyId(uint256 _currentNumOfProperties, string memory _location)
-        internal
-        view
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(_currentNumOfProperties, _location, block.timestamp, msg.sender));
+    function _generatePropertyId(uint256 _currentNumOfProperties) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(_currentNumOfProperties, block.timestamp, msg.sender));
     }
 
     function _incrementNumOfPropertiesListed() internal {
@@ -155,7 +103,7 @@ contract Web3nb {
     }
 
     function deleteProperty(bytes32 _propertyId) public onlyPropertyOwner(_propertyId) {
-        delete propertyDetailsByPropertyId[_propertyId];
+        delete propertyDetails[_propertyId];
 
         _decreaseNumOfPropertiesListed();
         _searchListOfAllPropertiesAndDelete(_propertyId);
@@ -179,39 +127,38 @@ contract Web3nb {
         currentNumOfProperties -= 1;
     }
 
-    // function approveBookingRequest(bytes32 _propertyId) public {
-    //     PropertyDetails storage listing = propertyDetailsByPropertyId[_propertyId];
-
-    //     listing.bookingApproved = true;
-    // }
-
-    function requestBooking(bytes32 _propertyId, uint256 _numOfAdditionalGuests, uint256 _daysBooked)
-        public
-        payable
-        returns (address _guest, bytes32 propertyId, uint256 daysBooked, address _propertyOwner, uint256 _depositAmount)
-    {
+    function requestBooking(bytes32 _propertyId, uint256 _daysBooked) public payable returns (bytes32 _bookingId) {
         uint256 totalDeposit = _calculatePropertyTotalDepositAmount(_propertyId, _daysBooked);
-        bookingDeposits[msg.sender][_propertyId] += msg.value;
         require(msg.value == totalDeposit, "Send exact deposit amount");
-        _addBookingDetails(msg.sender, _propertyId, _numOfAdditionalGuests, _daysBooked, msg.value);
+
+        bookingDeposits[msg.sender][_propertyId] += msg.value;
+
+        bytes32 bookingId = _generateBookingId(_daysBooked, _propertyId);
+        _addBookingRequestDetails(msg.sender, _propertyId, bookingId, _daysBooked, msg.value);
 
         emit BookingRequested(msg.sender, _propertyId, msg.value, _daysBooked);
-        return (msg.sender, _propertyId, _daysBooked, propertyDetailsByPropertyId[_propertyId].owner, msg.value);
+        return (bookingId);
     }
 
-    function _addBookingDetails(
+    function _generateBookingId(uint256 _daysBooked, bytes32 _propertyId) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(_daysBooked, _propertyId, block.timestamp, msg.sender, msg.value));
+    }
+
+    function _addBookingRequestDetails(
         address _guest,
         bytes32 _propertyId,
-        uint256 _numOfAdditionalGuests,
+        bytes32 _bookingId,
         uint256 _daysBooked,
         uint256 _depositAmount
     ) internal {
-        BookingDetails storage bookingDetails = bookingRequests[_guest][_propertyId];
-        bookingDetails.guest = payable(_guest);
+        BookingRequestDetails storage bookingDetails = propertyRequests[_bookingId];
+        bookingDetails.guest = _guest;
         bookingDetails.propertyId = _propertyId;
-        bookingDetails.numberOfAdditionalGuests = _numOfAdditionalGuests;
         bookingDetails.daysBooked = _daysBooked;
         bookingDetails.depositAmount = _depositAmount;
+        bookingDetails.status.pending = true;
+        bookingDetails.status.approved = false;
+        bookingDetails.status.declined = false;
     }
 
     function _calculatePropertyTotalDepositAmount(bytes32 _propertyId, uint256 _daysBooked)
@@ -219,11 +166,40 @@ contract Web3nb {
         view
         returns (uint256 _depositAmount)
     {
-        uint256 pricePerDay = propertyDetailsByPropertyId[_propertyId].pricePerNight;
+        uint256 pricePerDay = propertyDetails[_propertyId].pricePerNight;
 
         uint256 totalDeposit = _daysBooked * pricePerDay;
 
         return totalDeposit;
+    }
+
+    function approveBookingRequest(bytes32 _bookingId) public {
+        BookingRequestDetails storage request = propertyRequests[_bookingId];
+        require(msg.sender == propertyDetails[request.propertyId].owner, "Not Property owner");
+        require(request.status.pending == true, "Request no longer pending");
+        require(
+            bookingDeposits[request.guest][request.propertyId] >= request.depositAmount, "Guest did not make deposit"
+        );
+        bookingDeposits[request.guest][request.propertyId] -= request.depositAmount;
+
+        request.status.approved = true;
+        request.status.declined = false;
+        request.status.pending = false;
+
+        _mintKey(request.guest, request.propertyId);
+
+        (bool success,) = payable(msg.sender).call{value: request.depositAmount}("");
+        if (!success) {
+            revert Web3nb__TransactionFailed();
+        }
+
+        emit BookingApproved(request.propertyId, _bookingId);
+    }
+
+    function _mintKey(address _guest, bytes32 _propertyId) internal {
+        PropertyDetails storage listing = propertyDetails[_propertyId];
+        uint256 keyNFtId = keyNftContract.mintKey(_guest);
+        listing.keyNftId = keyNFtId;
     }
 
     // VIEW
@@ -231,12 +207,8 @@ contract Web3nb {
         return currentNumOfProperties;
     }
 
-    function getPropertyDetailsByPropertyId(bytes32 _propertytId)
-        external
-        view
-        returns (PropertyDetails memory _propertyDetails)
-    {
-        return propertyDetailsByPropertyId[_propertytId];
+    function getPropertyDetails(bytes32 _propertytId) external view returns (PropertyDetails memory _propertyDetails) {
+        return propertyDetails[_propertytId];
     }
 
     function getListOfAllListedProperties() external view returns (PropertyDetails[] memory _allListedProperties) {
