@@ -98,4 +98,34 @@ contract Web3nbTest is Test {
 
         assertEq(keyNft.ownerOf(keyNftId2), GUEST);
     }
+
+    function testDecliningBookingRequest() public {
+        vm.prank(HOST);
+        bytes32 propertyId = web3nb.addProperty(1 ether);
+        uint256 depositAmount = web3nb._calculatePropertyTotalDepositAmount(propertyId, 5);
+        vm.prank(GUEST);
+        bytes32 bookingId = web3nb.requestBooking{value: depositAmount}(propertyId, 5);
+
+        assertEq(web3nb.getDepositBalance(GUEST, propertyId), depositAmount);
+
+        vm.prank(HOST);
+        web3nb.declineBookingRequest(bookingId);
+
+        assertEq(web3nb.getDepositBalance(GUEST, propertyId), 0);
+    }
+
+    function testCancelingBookingRequest() public {
+        vm.prank(HOST);
+        bytes32 propertyId = web3nb.addProperty(1 ether);
+        uint256 depositAmount = web3nb._calculatePropertyTotalDepositAmount(propertyId, 5);
+        vm.prank(GUEST);
+        bytes32 bookingId = web3nb.requestBooking{value: depositAmount}(propertyId, 5);
+
+        assertEq(web3nb.getDepositBalance(GUEST, propertyId), depositAmount);
+
+        vm.prank(GUEST);
+        web3nb.cancelBookingRequest(bookingId);
+
+        assertEq(web3nb.getDepositBalance(GUEST, propertyId), 0);
+    }
 }
