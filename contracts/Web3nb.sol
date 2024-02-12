@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title Host
+ * @title Web3nb
  * @author https://github.com/X-O1
  * @notice This contract manages adding property details, listings, and bookings.
  */
