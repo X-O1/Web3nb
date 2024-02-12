@@ -29,7 +29,7 @@ contract Web3nbTest is Test {
 
     modifier propertyListed() {
         vm.prank(HOST);
-        web3nb.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
+        web3nb.addProperty(1 ether);
         _;
     }
 
@@ -37,16 +37,16 @@ contract Web3nbTest is Test {
 
     function testAddingProperty() public {
         vm.prank(HOST);
-        web3nb.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
+        web3nb.addProperty(1 ether);
         vm.prank(HOST);
-        web3nb.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
+        web3nb.addProperty(1 ether);
 
         assertEq(web3nb.getCurrentNumOfPropertiesListed(), 2);
     }
 
     function testDeletingProperty() public {
         vm.prank(HOST);
-        bytes32 propertyId = web3nb.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
+        bytes32 propertyId = web3nb.addProperty(1 ether);
 
         vm.prank(HOST);
         web3nb.getListOfAllListedProperties();
@@ -57,7 +57,7 @@ contract Web3nbTest is Test {
         web3nb.getListOfAllListedProperties();
 
         vm.prank(HOST);
-        web3nb.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1);
+        web3nb.addProperty(1 ether);
 
         vm.expectRevert();
         vm.prank(GUEST);
@@ -68,9 +68,34 @@ contract Web3nbTest is Test {
 
     function testBookingRequest() public {
         vm.prank(HOST);
-        bytes32 propertyId = web3nb.addProperty(false, true, true, false, "Las Vegas, NV", 1, 1, 1 ether);
+        bytes32 propertyId = web3nb.addProperty(1 ether);
+
         uint256 depositAmount = web3nb._calculatePropertyTotalDepositAmount(propertyId, 5);
         vm.prank(GUEST);
-        web3nb.requestBooking{value: depositAmount}(propertyId, 1, 5);
+        web3nb.requestBooking{value: depositAmount}(propertyId, 5);
+    }
+
+    function testApprovingBookingRequestAndMintingKeyNftUponApproval() public propertyListed {
+        vm.prank(HOST);
+        bytes32 propertyId = web3nb.addProperty(1 ether);
+        uint256 depositAmount = web3nb._calculatePropertyTotalDepositAmount(propertyId, 5);
+        vm.prank(GUEST);
+        bytes32 bookingId = web3nb.requestBooking{value: depositAmount}(propertyId, 5);
+
+        vm.prank(HOST);
+        uint256 keyNftId = web3nb.approveBookingRequest(bookingId);
+
+        assertEq(keyNft.ownerOf(keyNftId), GUEST);
+
+        vm.prank(HOST);
+        bytes32 propertyId2 = web3nb.addProperty(1 ether);
+        uint256 depositAmount2 = web3nb._calculatePropertyTotalDepositAmount(propertyId2, 5);
+        vm.prank(GUEST);
+        bytes32 bookingId2 = web3nb.requestBooking{value: depositAmount2}(propertyId2, 5);
+
+        vm.prank(HOST);
+        uint256 keyNftId2 = web3nb.approveBookingRequest(bookingId2);
+
+        assertEq(keyNft.ownerOf(keyNftId2), GUEST);
     }
 }
