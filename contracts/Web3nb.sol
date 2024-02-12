@@ -76,6 +76,7 @@ contract Web3nb {
     function addProperty(uint256 _pricePerNight) public returns (bytes32 _propertyId) {
         _incrementNumOfPropertiesListed();
         bytes32 propertyId = _generatePropertyId(currentNumOfProperties);
+        require(_checkIfPropertyExist(_propertyId) == false, "Property already exist");
 
         _addPropertyDetails(msg.sender, propertyId, _pricePerNight);
 
@@ -103,6 +104,7 @@ contract Web3nb {
     }
 
     function deleteProperty(bytes32 _propertyId) public onlyPropertyOwner(_propertyId) {
+        require(_checkIfPropertyExist(_propertyId) == true, "Property does not exist");
         delete propertyDetails[_propertyId];
 
         _decreaseNumOfPropertiesListed();
@@ -128,6 +130,8 @@ contract Web3nb {
     }
 
     function requestBooking(bytes32 _propertyId, uint256 _daysBooked) public payable returns (bytes32 _bookingId) {
+        require(_checkIfPropertyExist(_propertyId) == true, "Property does not exist");
+        require(_daysBooked > 0, "Must be more than zero");
         uint256 totalDeposit = _calculatePropertyTotalDepositAmount(_propertyId, _daysBooked);
         require(msg.value == totalDeposit, "Send exact deposit amount");
 
@@ -138,6 +142,18 @@ contract Web3nb {
 
         emit BookingRequested(msg.sender, _propertyId, msg.value, _daysBooked);
         return (bookingId);
+    }
+
+    function _checkIfPropertyExist(bytes32 _propertyId) internal view returns (bool) {
+        bool propertyExist = false;
+
+        for (uint256 i = 0; i < allPropertiesListed.length; i++) {
+            if (_propertyId == allPropertiesListed[i].propertyId) {
+                propertyExist = true;
+                break;
+            }
+        }
+        return propertyExist;
     }
 
     function _generateBookingId(uint256 _daysBooked, bytes32 _propertyId) internal view returns (bytes32) {
@@ -173,7 +189,7 @@ contract Web3nb {
         return totalDeposit;
     }
 
-    function approveBookingRequest(bytes32 _bookingId) public {
+    function approveBookingRequest(bytes32 _bookingId) public returns (uint256 _keyNftId) {
         BookingRequestDetails storage request = propertyRequests[_bookingId];
         require(msg.sender == propertyDetails[request.propertyId].owner, "Not Property owner");
         require(request.status.pending == true, "Request no longer pending");
@@ -186,7 +202,7 @@ contract Web3nb {
         request.status.declined = false;
         request.status.pending = false;
 
-        _mintKey(request.guest, request.propertyId);
+        uint256 keyNftId = _mintKey(request.guest, request.propertyId);
 
         (bool success,) = payable(msg.sender).call{value: request.depositAmount}("");
         if (!success) {
@@ -194,12 +210,16 @@ contract Web3nb {
         }
 
         emit BookingApproved(request.propertyId, _bookingId);
+
+        return keyNftId;
     }
 
-    function _mintKey(address _guest, bytes32 _propertyId) internal {
+    function _mintKey(address _guest, bytes32 _propertyId) internal returns (uint256 _keyNftId) {
         PropertyDetails storage listing = propertyDetails[_propertyId];
         uint256 keyNFtId = keyNftContract.mintKey(_guest);
         listing.keyNftId = keyNFtId;
+
+        return keyNFtId;
     }
 
     // VIEW
