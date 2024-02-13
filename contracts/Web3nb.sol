@@ -8,8 +8,9 @@ pragma solidity ^0.8.20;
  */
 
 import {KeyNft} from "./KeyNft.sol";
+import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-contract Web3nb {
+contract Web3nb is ReentrancyGuard {
     // ERRORS
     error Web3nb__PropertyDoesNotExist();
     error Web3nb__NotPropertyOwner();
@@ -197,7 +198,7 @@ contract Web3nb {
         return totalDeposit;
     }
 
-    function cancelBookingRequest(bytes32 _bookingId) external {
+    function cancelBookingRequest(bytes32 _bookingId) external nonReentrant {
         require(_checkIfBookingRequestExist(_bookingId) == true, "Request does not exist");
         BookingRequestDetails storage request = propertyRequests[_bookingId];
         require(msg.sender == propertyRequests[request.bookingId].guest, "Not request owner");
@@ -220,7 +221,7 @@ contract Web3nb {
         emit BookingCanceled(request.propertyId, request.bookingId);
     }
 
-    function approveBookingRequest(bytes32 _bookingId) external returns (uint256 _keyNftId) {
+    function approveBookingRequest(bytes32 _bookingId) external nonReentrant returns (uint256 _keyNftId) {
         require(_checkIfBookingRequestExist(_bookingId) == true, "Request does not exist");
         BookingRequestDetails storage request = propertyRequests[_bookingId];
         require(msg.sender == propertyDetails[request.propertyId].owner, "Not Property owner");
@@ -255,7 +256,7 @@ contract Web3nb {
         return keyNFtId;
     }
 
-    function declineBookingRequest(bytes32 _bookingId) external {
+    function declineBookingRequest(bytes32 _bookingId) external nonReentrant {
         require(_checkIfBookingRequestExist(_bookingId) == true, "Request does not exist");
         BookingRequestDetails storage request = propertyRequests[_bookingId];
         require(msg.sender == propertyDetails[request.propertyId].owner, "Not Property owner");
