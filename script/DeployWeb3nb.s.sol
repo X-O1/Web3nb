@@ -8,15 +8,19 @@ import {KeyNft} from "../contracts/KeyNft.sol";
 contract DeployWeb3nb is Script {
     address public keyNftContractAddress;
 
-    constructor(address _keyNftContractAddress) {
-        keyNftContractAddress = _keyNftContractAddress;
+
+    constructor() {
     }
 
     function run() external returns (Web3nb) {
         vm.startBroadcast();
+
+        //Deploy Key Nft
+        KeyNft keyNft = new KeyNft();
+        keyNftContractAddress = address(keyNft);
+        //Deploy web3nb contract
         Web3nb web3nb = new Web3nb(keyNftContractAddress);
         vm.stopBroadcast();
-
         return web3nb;
     }
 }

@@ -21,12 +21,12 @@ contract KeyNft is ERC721URIStorage {
         tokenIds += 1;
     }
 
-    function mintKey() public returns (uint256 _newTokenId) {
+    function mintKey(address _guest) public returns (uint256 _newTokenId) {
         increment();
 
         uint256 newTokenId = tokenIds;
-        _mint(msg.sender, newTokenId);
-        _setTokenURI(newTokenId, "Photo of a magical key");
+        _mint(_guest, newTokenId);
+        _setTokenURI(newTokenId, "public/images/keyNft.jpeg");
 
         return newTokenId;
     }
